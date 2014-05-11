@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Backbone</title>
+</head>
+<body>
+	<!-- Zbior metod typu map, each do JS -->
+    <script src="underscore.js"></script>
+	<!-- :) -->
+    <script src="jquery-2.1.1.js"></script>
+	<!-- Doskonale narzedzie do tworzenia MVP -->
+    <script src="backbone.js"></script>
+	<!-- W prosty i przyjemny sposob mozemy tworzyc widoki -->
+	<script src="handlebars-v1.3.0.js"></script>
+    <script>
+        $(function () {
+			var Book = Backbone.Model.extend({
+				initialize: function(){
+					//console.log('Tworze nowy model ksiazki' + this.get('title'));
+					this.on('change', function(){
+						//console.log('model changed');
+					});
+				},
+				// Domyslne wartosci, ktore zostana przypisane w momencie tworzenia obiektu
+				defaults: function (){
+					return{
+						author: '',
+						title: '',
+						id: 0
+					}
+				}
+			});
+			
+			// Tworzenie obiektu z zadanego modelu
+			var book = new Book({ author: "George R. R. Martin",
+			                      title: "Game of Thrones" });
+								  
+			// Mozna walnac typo, wd mnie - 
+			book.set('wydawca', 'nowy_przykladowy');
+			
+			// Listing wszystkich wartosci w kolekcji i wykonanie na kazdym z obiektow okreslonej funkcji
+			// _.each({one:1,two:2,three:3},alert);
+			
+			// Mapowanie obiektow na funkcje z parametrem przez wartosc
+			var a = _.map([1,2,3,4], function(num){
+				return num * 3;
+			});
+			
+			// Tworzenie kolekcji o okreslonych obiektach w srodku
+			var Library = Backbone.Collection.extend({
+				model: Book
+			});
+			
+			
+			// Deklaracja nowej kolekcji
+			var books = new Library([book]);
+			
+			// Listing obiektow
+			//console.log(books.toJSON());
+			
+			// Przekazujemy kolekcji obiekt, ktory ma usunac 
+			// books.remove(book);
+			
+			// Dociaganie obiektow z serwera
+			var Test = Backbone.Collection.extend({
+			    model: Book,
+			    url: 'http://127.0.0.1:8000'
+			});
+			
+			// Towrzenie widoku 
+			var BookView = Backbone.View.extend({
+			    tagName: 'li',
+			    render: function () {
+			        this.$el.html('<strong>' + this.model.get('author') +
+			          '</strong> - <em>' + this.model.get('title') + '</em>');
+			        return this;
+			}
+			});
+			
+			// Tworzenie nowej kolekcji w oparciu o pobrane dane z serwera, appki Django
+			books = new Test();
+			
+			// Wczesniejsza definicja zmiennej
+			var view;
+			
+			// Tworzenie widoku bez Handlebars
+			// var BooksView = Backbone.View.extend({
+			// 	initialize: function(){
+			// 		this.collection.on('add', this.render, this);
+			// 		this.collection.on('reset', this.render, this);
+			// 	},
+			// 	el: '#container',
+			// 	render: function () {
+			// 	        this.$el.html();
+			// 			console.log(this.collection.size());
+			// 			var a = '';
+			// 	        for (var i = 0; i < this.collection.size(); ++i) {
+			// 	            var book = this.collection.at(i);
+			// 	           	a += '<li>' + book.get('title') + '</li>';
+			// 	        }
+			// 			this.$el.html(a);
+			// 	        return this;
+			// 	}
+			// });
+			
+			// Tworzenie widoku
+			var BooksView = Backbone.View.extend({
+				initialize: function(){
+					// Bindowanie metod na obiektach z innymi metodami
+					this.collection.on('add', this.render, this);
+					this.collection.on('reset', this.render, this);
+					this.collection.on('remove', this.render, this);
+				},
+				// Bindowanie eventow na elementach, mozemy podawac wlasne klasy i metody, ktore maja zostac wywoalane
+				events:{
+				 'click .edit' : 'edit',
+				 'click .delete' : 'remove'
+				},
+				// Funkcje ktore sa wywolywane przez akcje bindowania
+			    remove: function(e) {
+					e.preventDefault();
+			        var id = $(e.currentTarget).data("id");
+					var element = this.collection.get(id);
+					this.collection.remove(element);
+			    },
+			    edit: function (e) {
+					e.preventDefault();
+			        console.log(e);
+				},
+				// 
+				el: '#container',
+				// Template widoku
+				template: Handlebars.compile($("#library-template").html()), 
+				// Kazdy widok musi w jakis sposob w koncu wyswietlic dane
+				render: function () {
+				        this.$el.html(
+				            this.template({ 'books': this.collection.toJSON()})
+						);
+				        return this;
+				}
+			});
+			
+			// Podpiecie pod selektor metody przy pomocy JQuery
+			$("#new-book").submit(function () {
+			    var book = new Book({ author: $("#author").val(),
+			                          title: $("#title").val() });
+			    books.add(book);
+			    return false;
+			});
+			
+			
+			// Dociaganie ksiazek z okreslonego wczesniej adresu URL, dostaje JSON i tworzy z nich obiety
+			books.fetch({
+			    success: function() { 
+					view = new BooksView({collection:books});
+					view.render();
+				},
+			    error: function()   { 
+					console.log('error'); 
+			}
+			});
+			
+			// Tworzenie nowego obiektu
+			// book = new Book({ author: "George R. R. Martin",
+			//                       title: "Game of Thrones" });
+			// books.create(book, {
+			//     success: function() { //console.log('saved');  
+			// },
+			//     error: function() { //console.log('error');
+			// }
+			// });
+			
+			console.log(books.toJSON());
+		});
+		</script>
+		<!-- Template bez HandleBars -->
+		<script type="text/template" id="books-template">
+		    <% for(var i = 0; i < books.length; ++i) { %>
+		        <% var book = books[i]; %>
+		        <li><strong><%= book.author %></strong> -
+		        <em><%= book.title %></em></li>
+		    <% } %>
+		</script>
+		
+		<!-- Przyklad mozliwosci Handlebars -->
+		<script type="text/x-handlebars-template" id="library-template">
+		    <ul>{{#each books}}
+		    <li><strong>{{author}}
+			</strong> - <em>{{title}}</em></li>
+		    <a href="#" data-id="{{id}}" class="edit">[edit]</a>
+		    <a href="#" data-id="{{id}}" class="delete">[delete]</a>
+		    {{/each}}</ul>
+		</script>
+		
+		<form id="new-book">
+		    <label>Author: </label>
+		    <input id="author" name="author" type="text"/>
+		    <label>Title: </label>
+		    <input id="title" name="title" type="text"/>
+		    <button>Add</button>
+		</form>
+		<ul id="container"></ul>
+</body>
+
+</html>
